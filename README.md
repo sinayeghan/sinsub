@@ -26,27 +26,39 @@ Before installing or running `sinaSub`, make sure your system has the following:
 
 ---
 
-## 🚀 Installation
 
-1. **Clone the Repository**
+Step-by-Step Installation & Usage (0 to 100)
 
-   ```bash
-   git clone https://github.com/yourusername/sinsub.git
-   cd sinsub
+Below is a detailed, step-by-step guide (“Installation” section) you can include in your GitHub repository—either in the README or in a separate INSTALL.md file. This will help anyone who clones your repo to get up and running from scratch:
+1. Clone the Repository
 
-2. **Make Installer and Main Script Executable**
-   chmod +x setup.sh
-   chmod +x sinaSub.sh
+    Open a terminal (on Kali Linux, WSL, Ubuntu, etc.).
 
-3. **Run the Installer Script**
-   ./setup.sh
+    Run:
+
+    git clone https://github.com/yourusername/sinsub.git
+    cd sinsub
+
+    This creates a local sinsub/ folder containing all project files.
+
+2. Make Scripts Executable
+
+Inside the sinsub/ folder, give execution permission to both setup.sh and sinaSub.sh:
+
+chmod +x setup.sh
+chmod +x sinaSub.sh
+
+3. Install Dependencies
+
+Run the installer script. This will take care of installing all Go-based and Python-based tools:
+
 ./setup.sh
 
-The setup.sh script will:
+What setup.sh does:
 
-    Install or verify:
+    Installs Golang (if not already installed).
 
-        Golang
+    Installs or verifies:
 
         findomain
 
@@ -62,97 +74,188 @@ The setup.sh script will:
 
         anew
 
-    Install Python CLI tools via pipx:
+    Installs Python-based tools via pipx:
 
         sublist3r
 
-    Install Gobuster via apt:
+    Installs Gobuster via apt-get:
 
-        gobuster
+    sudo apt-get install -y gobuster
 
-    Ensure $HOME/go/bin is added to your $PATH so that Go-installed binaries are available.
+    Adds $HOME/go/bin to your PATH (if it isn’t there already).
 
-(Optional) Install sinaSub System-wide
+    Important:
 
-If you want to run sinaSub from anywhere, copy it to /usr/local/bin: 
+        If any of these tools fail to install, setup.sh will print a “Failed!” line. You may have to install that tool manually.
+
+        After setup.sh completes, make sure you restart your terminal or run source ~/.bashrc so that new PATH changes take effect.
+
+4. Verify Installation
+
+    Verify Go binaries (these should appear in ~/go/bin and now be in your $PATH):
+
+which findomain    # should return /usr/local/bin/findomain
+which subfinder    # should return ~/go/bin/subfinder
+which amass        # should return ~/go/bin/amass
+which assetfinder  # should return ~/go/bin/assetfinder
+which dnsx         # should return ~/go/bin/dnsx
+which anew         # should return ~/go/bin/anew
+which gobuster     # should return /usr/bin/gobuster (or similar)
+
+Verify Python-based tools:
+
+    pipx list         # you should see sublist3r listed
+    which sublist3r   # should return something like ~/.local/bin/sublist3r
+
+If any of the above “which” commands return no path, you may need to manually install or correct your $PATH.
+5. (Optional) Install sinaSub System-Wide
+
+If you want to call sinaSub from anywhere (no need to cd sinsub each time):
 
 sudo cp sinaSub.sh /usr/local/bin/sinaSub
 sudo chmod +x /usr/local/bin/sinaSub
 
-    udo chmod +x /usr/local/bin/sinaSub
+Now you can simply run sinsub instead of ./sinaSub.sh.
+6. Basic Enumeration Examples
+A) Enumerate a Single Domain
 
-🎯 Usage
-1) Enumerate a Single Domain
-
-# If you are still inside the sinsub/ folder:
+# If still inside sinsub/ folder:
 ./sinaSub.sh -d example.com
 
-# If you copied it to /usr/local/bin:
+# If installed system-wide:
 sinsub -d example.com
 
-    Temporary files (tmp-*.example.com) will be created in the current directory for each tool’s output.
+    Outputs for each tool are temporarily stored as:
 
-    At the end, all unique subdomains are consolidated into:
+tmp-wayback-example.com
+tmp-crt-example.com
+tmp-abuseipdb-example.com
+tmp-findomain-example.com
+tmp-subfinder-example.com
+tmp-amass-example.com
+tmp-assetfinder-example.com
+tmp-sublist3r-example.com
+tmp-gobuster-example.com
+
+At the very end, all unique domain results are combined into:
 
     sinsub-example.com-YYYY-MM-DD.txt
 
-2) Enumerate Multiple Domains from a File
+B) Enumerate a List of Domains
 
-# domains.txt is a plain text file with one domain per line:
+Assume domains.txt contains:
+
+example.com
+domain2.com
+mytarget.org
+
+Run:
+
 ./sinaSub.sh -l domains.txt
 
-    The script processes each domain in sequence.
+The script will process example.com first (printing progress), then domain2.com, then mytarget.org. Each domain gets its own final output file:
 
-    For each domain, a separate output file will be generated.
+sinsub-example.com-YYYY-MM-DD.txt
+sinsub-domain2.com-YYYY-MM-DD.txt
+sinsub-mytarget.org-YYYY-MM-DD.txt
 
-3) Specify Tools to Use
+7. Advanced Usage Examples
+1. Only Specific Tools
 
-# Only run Findomain, Wayback, and Subfinder:
-./sinaSub.sh -d example.com -u Findomain,wayback,Subfinder
+# Only use Findomain, Wayback, and Subfinder:
+sinsub -d hackerone.com -u Findomain,wayback,Subfinder
 
-4) Exclude Specific Tools
+2. Exclude Specific Tools
 
 # Run all tools except Amass and Assetfinder:
-./sinaSub.sh -d example.com -e Amass,Assetfinder
+sinsub -d hackerone.com -e Amass,Assetfinder
 
-5) Silent Mode (Only Print Subdomains)
+3. Silent Mode
 
-./sinaSub.sh -d example.com -s
+# Silent mode: only print unique subdomains to stdout; save them in subenum-hackerone.com.txt
+sinsub -d hackerone.com -s
 
-    Only the list of subdomains is printed.
+4. Resolve Live Subdomains
 
-    Results are saved into subenum-example.com.txt (one per line, unique).
+# After collecting subdomains, check which ones resolve (requires dnsx). Output to resolved-hackerone.com.txt
+sinsub -d hackerone.com -r
 
-6) Resolve for Live Subdomains
+5. Parallel Enumeration
 
-./sinaSub.sh -d example.com -r
+# Use GNU parallel to run each tool concurrently for faster results
+sinsub -d example.com -p
 
-    After collecting subdomains, dnsx will probe each one to check if it resolves.
+    Note: Cannot combine -p with -u or -e.
 
-    Working subdomains are saved in resolved-example.com.txt.
+6. Custom Output Filename
 
-7) Run in Parallel for Faster Enumeration
+# Save final results into mysubs.txt instead of default
+sinsub -d example.com -o mysubs.txt
 
-./sinaSub.sh -d example.com -p
+7. Adjust DNSX Thread Count
 
-    Uses GNU parallel to run each tool simultaneously.
+# Use 100 threads when resolving live subdomains
+sinsub -d example.com -r -t 100
 
-    Speeds up enumeration but cannot be combined with -e/--exclude or -u/--use.
+8. Tips & Troubleshooting
 
-8) Specify Custom Output Filename
+    “Command not found” errors: Verify that $HOME/go/bin and ~/.local/bin (where pipx places binaries) are in your $PATH.
 
-./sinaSub.sh -d example.com -o mysubdomains.txt
+echo $PATH
 
-    Overrides default sinsub-example.com-YYYY-MM-DD.txt.
+If necessary:
 
-9) Set Number of Threads for DNS/HTTP Probing
+echo 'export PATH=$PATH:$HOME/go/bin:$HOME/.local/bin' >> ~/.bashrc
+source ~/.bashrc
 
-./sinaSub.sh -d example.com -r -t 100
+Manual installation of a single missing tool:
 
-    Uses 100 threads when running dnsx (or httpx if integrated later).
+    If findomain failed, visit https://github.com/Findomain/Findomain and follow their instructions.
 
-10) Display Version or Help
+    If subfinder failed, run:
 
-./sinaSub.sh -v  # Print version
-./sinaSub.sh -h  # Show help/usage
+go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
 
+If amass failed, run:
+
+go install -v github.com/owasp-amass/amass/v4/...@master
+
+If assetfinder failed, run:
+
+go install github.com/tomnomnom/assetfinder@latest
+
+If dnsx failed, run:
+
+go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest
+
+If anew failed, run:
+
+go install -v github.com/tomnomnom/anew@latest
+
+If sublist3r failed, run:
+
+pipx install sublist3r
+
+If gobuster failed, run:
+
+        sudo apt-get install -y gobuster
+
+    WSL (Windows Subsystem for Linux):
+
+        If using WSL, make sure you’ve installed sudo apt update && sudo apt install -y wget unzip git pipx golang-go parallel first.
+
+        In WSL, $HOME/go/bin might not be in your default $PATH—add it manually.
+
+    License:
+
+        This project is released under the MIT License. Feel free to use, modify, and distribute.
+
+By following these steps, any user—whether on a fresh Kali install, Ubuntu, or WSL—will be able to:
+
+    Clone the sinsub repository.
+
+    Run setup.sh to install all dependencies.
+
+    Run sinaSub.sh (or the sinsub alias) to enumerate subdomains.
+
+Thank you for using sinaSub! Happy Hunting.
