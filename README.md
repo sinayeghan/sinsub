@@ -36,7 +36,7 @@ Below is a detailed, step-by-step guide (“Installation” section) you can inc
 
     Run:
 
-    git clone https://github.com/yourusername/sinsub.git
+    git clone https://github.com/sinayeghan/sinsub.git
     cd sinsub
 
     This creates a local sinsub/ folder containing all project files.
