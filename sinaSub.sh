@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# sinaSub: Customized Subdomain Enumeration Tool v1.0.0
+# sinaSub: Customized Subdomain Enumeration Tool v1.5.0
 
 # ========================= Large ASCII Logo =========================
 bold="\e[1m"
@@ -9,7 +9,7 @@ red="\e[31m"
 green="\e[32m"
 blue="\e[34m"
 end="\e[0m"
-VERSION="1.0.0"
+VERSION="1.5.0"
 
 cat << "EOF"
   _____ _           _   _____       _     
@@ -21,7 +21,7 @@ cat << "EOF"
 
 
       Customized Subdomain Enumeration Tool
-                  sinsub v1.0
+                  sinsub v1.5
 EOF
 
 # ========================= Colors & Version =========================
@@ -31,7 +31,7 @@ red="\e[31m"
 green="\e[32m"
 blue="\e[34m"
 end="\e[0m"
-VERSION="1.0.0"
+VERSION="1.5.0"
 
 # ========================= Show Usage Instructions =========================
 Usage(){
@@ -43,7 +43,7 @@ Usage(){
     \r    -d, --domain       - Domain to enumerate
     \r    -l, --list         - File containing domains (one per line)
     \r    -u, --use          - Comma-separated tools to **include**
-    \r                        (e.g. Findomain,Subfinder,Amass,Assetfinder,Sublist3r,GobusterDNS,wayback,crt,abuseipdb)
+    \r                        (e.g. wayback,crt,abuseipdb,Findomain,Subfinder,Amass,Assetfinder,Sublist3r,GobusterDNS,PyCrt,PyShodan)
     \r    -e, --exclude      - Comma-separated tools to **exclude**
     \r    -o, --output       - Custom output file name
     \r                        (Default: sinsub-<domain>-YYYY-MM-DD.txt)
@@ -60,14 +60,14 @@ Usage(){
 
     \r# ${bold}${blue}Available Tools${end}:
     \r    wayback, crt, abuseipdb, Findomain, Subfinder, Amass,
-    \r    Assetfinder, Sublist3r, GobusterDNS
+    \r    Assetfinder, Sublist3r, GobusterDNS, PyCrt, PyShodan
 
     \r# ${bold}${blue}Examples${end}:
     \r    # Run all tools on a single domain:
     \r    ./sinaSub.sh -d hackerone.com
     \r
     \r    # Only use specific tools:
-    \r    ./sinaSub.sh -d hackerone.com -u Findomain,Subfinder,Sublist3r
+    \r    ./sinaSub.sh -d hackerone.com -u Findomain,Subfinder,PyShodan
     \r
     \r    # Exclude specific tools:
     \r    ./sinaSub.sh -d hackerone.com -e Amass,Assetfinder
@@ -227,6 +227,107 @@ GobusterDNS() {
     fi
 }
 
+# 10) PyCrt (crt.sh via Python + BeautifulSoup)
+PyCrt() {
+    if [ "$silent" == True ]; then
+        python3 - << 'EOF' | tr ',' '\n' | awk -F'"' '/name_value/ {gsub(/\*\./, "", $4); gsub(/\\n/,"\n",$4); print $4}' | sort -u | anew subenum-$domain.txt
+import sys, requests
+from bs4 import BeautifulSoup
+
+domain = sys.argv[1]
+url = f"https://crt.sh/?q=%25.{domain}"
+resp = requests.get(url, timeout=30)
+soup = BeautifulSoup(resp.text, "html.parser")
+subs = set()
+for row in soup.find_all("td"):
+    text = row.text.strip()
+    if text.endswith(domain) and "*" not in text:
+        subs.add(text)
+for sub in sorted(subs):
+    print(sub)
+EOF
+    else
+        [[ ${PARALLEL} == True ]] || { spinner "${bold}PyCrt${end}" & PID="$!"; }
+        python3 - << 'EOF' | tr ',' '\n' | awk -F'"' '/name_value/ {gsub(/\*\./, "", $4); gsub(/\\n/,"\n",$4); print $4}' | sort -u > tmp-pycrt-$domain
+import sys, requests
+from bs4 import BeautifulSoup
+
+domain = sys.argv[1]
+url = f"https://crt.sh/?q=%25.{domain}"
+resp = requests.get(url, timeout=30)
+soup = BeautifulSoup(resp.text, "html.parser")
+subs = set()
+for row in soup.find_all("td"):
+    text = row.text.strip()
+    if text.endswith(domain) and "*" not in text:
+        subs.add(text)
+for sub in sorted(subs):
+    print(sub)
+EOF
+        [[ ${PARALLEL} == True ]] || kill ${PID} 2>/dev/null
+        echo -e "$bold[*] PyCrt${end}: $(wc -l < tmp-pycrt-$domain)"
+    fi
+}
+
+# 11) PyShodan (Shodan API via Python)
+PyShodan() {
+    if [ "$silent" == True ]; then
+        python3 - << 'EOF' | sort -u | anew subenum-$domain.txt
+import sys
+try:
+    import shodan
+except ImportError:
+    sys.exit()
+
+API_KEY = "YOUR_SHODAN_API_KEY"
+domain = sys.argv[1]
+
+api = shodan.Shodan(API_KEY)
+try:
+    results = api.search(f"hostname:{domain}")
+except:
+    sys.exit()
+
+subs = set()
+for match in results.get('matches', []):
+    for host in match.get('hostnames', []):
+        if host.endswith(domain):
+            subs.add(host)
+for sub in sorted(subs):
+    print(sub)
+EOF
+    else
+        [[ ${PARALLEL} == True ]] || { spinner "${bold}PyShodan${end}" & PID="$!"; }
+        python3 - << 'EOF' | sort -u > tmp-pyshodan-$domain
+import sys
+try:
+    import shodan
+except ImportError:
+    sys.exit()
+
+API_KEY = "YOUR_SHODAN_API_KEY"
+domain = sys.argv[1]
+
+api = shodan.Shodan(API_KEY)
+try:
+    results = api.search(f"hostname:{domain}")
+except:
+    sys.exit()
+
+subs = set()
+for match in results.get('matches', []):
+    for host in match.get('hostnames', []):
+        if host.endswith(domain):
+            subs.add(host)
+for sub in sorted(subs):
+    print(sub)
+EOF
+        [[ ${PARALLEL} == True ]] || kill ${PID} 2>/dev/null
+        echo -e "$bold[*] PyShodan${end}: $(wc -l < tmp-pyshodan-$domain)"
+    fi
+}
+
+
 # ========================= Helper Functions =========================
 OUT(){
     if [ "$silent" == False ]; then
@@ -269,9 +370,9 @@ LIST() {
             if [ "${PARALLEL}" == True ]; then
                 spinner "Reconnaissance" &
                 PID="$!"
-                export -f wayback crt abuseipdb Findomain Subfinder Amass Assetfinder Sublist3r GobusterDNS spinner
+                export -f wayback crt abuseipdb Findomain Subfinder Amass Assetfinder Sublist3r GobusterDNS PyCrt PyShodan spinner
                 export domain silent bold end
-                parallel -j7 ::: wayback crt abuseipdb Findomain Subfinder Amass Assetfinder Sublist3r GobusterDNS
+                parallel -j7 ::: wayback crt abuseipdb Findomain Subfinder Amass Assetfinder Sublist3r GobusterDNS PyCrt PyShodan
                 kill ${PID}
                 OUT "$out"
             else
@@ -284,6 +385,8 @@ LIST() {
                 Assetfinder
                 Sublist3r
                 GobusterDNS
+                PyCrt
+                PyShodan
                 OUT "$out"
             fi
         fi
@@ -319,6 +422,8 @@ list=(
     Assetfinder
     Sublist3r
     GobusterDNS
+    PyCrt
+    PyShodan
 )
 
 USE() {
@@ -395,9 +500,9 @@ if [ "$domain" != False ]; then
         if [ "${PARALLEL}" == True ]; then
             spinner "Reconnaissance" &
             PID="$!"
-            export -f wayback crt abuseipdb Findomain Subfinder Amass Assetfinder Sublist3r GobusterDNS spinner
+            export -f wayback crt abuseipdb Findomain Subfinder Amass Assetfinder Sublist3r GobusterDNS PyCrt PyShodan spinner
             export domain silent bold end
-            parallel -j7 ::: wayback crt abuseipdb Findomain Subfinder Amass Assetfinder Sublist3r GobusterDNS
+            parallel -j7 ::: wayback crt abuseipdb Findomain Subfinder Amass Assetfinder Sublist3r GobusterDNS PyCrt PyShodan
             kill ${PID}
             OUT "$out"
         else
@@ -410,6 +515,8 @@ if [ "$domain" != False ]; then
             Assetfinder
             Sublist3r
             GobusterDNS
+            PyCrt
+            PyShodan
             OUT "$out"
         fi
     else
