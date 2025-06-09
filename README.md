@@ -1,256 +1,187 @@
-# sinsub
-a tool for find subdomains
-# sinaSub (Customized Subdomain Enumeration Tool)
+````markdown
+# sinsub (Customized Subdomain Enumeration Tool)
 
-A powerful and user-friendly tool for collecting and consolidating subdomains.  
-Based on [SubEnum](https://github.com/bing0o/SubEnum) by bing0o (@hack1lab), `sinaSub` adds several popular subdomain enumeration tools and a custom ASCII art logo.
+A powerful, modular and user-friendly Bash script for aggregating subdomains from multiple sources.  
+`sinsub` integrates Wayback, crt.sh, AbuseIPDB, Findomain, Subfinder, Amass, Assetfinder, Sublist3r, GobusterDNS, plus Python-powered **PyCrt** and **PyShodan** modules—complete with parallel execution, live-host resolution, and a sleek ASCII logo.
 
-**Version:** v1.0.0  
+**Version:** v1.5.0  
 **Author:** sina (@sinayeghan)
-
----
-
 
 ---
 
 ## 🛠️ Prerequisites
 
-Before installing or running `sinaSub`, make sure your system has the following:
+Ensure your system has the following before running `sinaSub.sh`:
 
-- **Bash** (or any shell compatible with Bash)  
-- **Zsh** (optional—but some commands in the script assume Zsh is installed)  
-- **Go** (version 1.15 or newer)  
-- **Python 3** (version 3.8 or newer)  
-- **pipx** (for installing Python-based CLI tools like Sublist3r)  
-- **GNU `parallel`** (if you plan to use the `--parallel` flag)  
-
----
-
-
-````markdown
-# sinsub (Subdomain Enumeration Tool)
-
-**Repository:**  
-[https://github.com/sinayeghan/sinsub.git](https://github.com/sinayeghan/sinsub.git)
+- **Bash** (or any compatible shell)  
+- **Go** ≥ 1.15 (for Go-based tools)  
+- **Python 3.8+** and **pip3**  
+- **pipx** (optional, for Sublist3r)  
+- **GNU parallel** (if you want `-p/--parallel`)  
+- **dnsx** (for live-host resolution)  
+- **anew** (for atomic appending)  
+- **gobuster** (DNS brute-force)  
 
 ---
 
 ## 🚀 Installation & Setup
 
-Follow these steps to get `sinsub` up and running in just a few commands.
-
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/sinayeghan/sinsub.git
-cd sinsub
+1. **Clone repository**
+   ```bash
+   git clone https://github.com/sinayeghan/sinsub.git
+   cd sinsub
 ````
 
-### 2. Make Scripts Executable
+2. **Make scripts executable**
 
-```bash
-chmod +x setup.sh
-chmod +x sinaSub.sh
-```
+   ```bash
+   chmod +x setup.sh sinaSub.sh
+   ```
 
-### 3. Run the Installer Script
+3. **Run installer**
 
-```bash
-./setup.sh
-```
+   ```bash
+   ./setup.sh
+   ```
 
-**What `setup.sh` Does:**
+   This will:
 
-1. Installs or verifies all Go-based tools:
+   * Install/verify Go, Findomain, Subfinder, Amass, Assetfinder, dnsx, anew
+   * Install GNU parallel
+   * Install Python 3, pip3, pipx, Sublist3r (via pipx or pip3)
+   * Install Gobuster (via apt)
+   * Install Python libs: `requests`, `beautifulsoup4`, `shodan`
 
-   * `findomain`
-   * `subfinder`
-   * `amass`
-   * `assetfinder`
-   * `dnsx`
-   * `anew`
-2. Installs GNU `parallel`.
-3. Installs Python-based tool via `pipx`:
+4. **Reload your shell**
 
-   * `sublist3r`
-4. Installs `gobuster` via `apt`.
-5. Adds `$HOME/go/bin` to your `PATH` if it’s not already there.
-
-> After `setup.sh` finishes, you should see “Done” or “Failed” messages for each tool.
-> If any tool fails, install it manually (see troubleshooting tips below).
+   ```bash
+   source ~/.bashrc
+   ```
 
 ---
 
-## 🎯 Quick Usage Examples
+## 🎯 Quick Usage
 
-Assume you are still inside the `sinsub/` folder. Replace `example.com` with your target domain.
+Replace `example.com` with your target domain. All commands assume you are in the `sinsub/` directory.
 
-### 1. Enumerate a Single Domain
+### 1. Single-domain enumeration
 
 ```bash
 ./sinaSub.sh -d example.com
 ```
 
-* Temporary files (`tmp-*.example.com`) will be created in the current folder for each tool.
-* Final combined list of unique subdomains is saved as:
+* Temporary `tmp-<tool>-example.com` files appear in cwd
+* Final unique list:
 
   ```
   sinsub-example.com-YYYY-MM-DD.txt
   ```
 
----
-
-### 2. Enumerate Multiple Domains from a File
-
-Prepare a text file (e.g. `domains.txt`) with one domain per line:
-
-```
-example.com
-target.org
-my.test-domain.io
-```
-
-Then run:
+### 2. Multiple domains from file
 
 ```bash
 ./sinaSub.sh -l domains.txt
 ```
 
-* Each domain in `domains.txt` is processed in turn.
-* Output files:
+* Processes each line in `domains.txt`
+* Outputs one file per domain
 
-  ```
-  sinsub-example.com-YYYY-MM-DD.txt
-  sinsub-target.org-YYYY-MM-DD.txt
-  sinsub-my.test-domain.io-YYYY-MM-DD.txt
-  ```
-
----
-
-### 3. Use Only Specific Tools
+### 3. Include only certain tools
 
 ```bash
-./sinaSub.sh -d example.com -u Findomain,Subfinder,Sublist3r
+./sinaSub.sh -d example.com -u Findomain,Subfinder,PyShodan
 ```
 
-* `-u` (or `--use`) accepts a comma-separated list of tools to include. Valid tool names are:
-
-  ```
-  wayback, crt, abuseipdb, Findomain, Subfinder, Amass,
-  Assetfinder, Sublist3r, GobusterDNS
-  ```
-
----
-
-### 4. Exclude Specific Tools
+### 4. Exclude specific tools
 
 ```bash
-./sinaSub.sh -d example.com -e Amass,Assetfinder
+./sinaSub.sh -d example.com -e Amass,Assetfinder,PyCrt
 ```
 
-* `-e` (or `--exclude`) accepts a comma-separated list of tools to skip.
-
----
-
-### 5. Silent Mode (Only Print Subdomains)
+### 5. Silent mode (stdout only)
 
 ```bash
 ./sinaSub.sh -d example.com -s
 ```
 
-* Prints only the unique subdomains to standard output.
-* Results are saved in `subenum-example.com.txt`.
+* Prints subdomains to console
+* Saves `subenum-example.com.txt`
 
----
-
-### 6. Resolve Live Subdomains
+### 6. Resolve live hosts
 
 ```bash
 ./sinaSub.sh -d example.com -r
 ```
 
-* After collecting subdomains, runs `dnsx` to check which ones resolve successfully.
-* Live subdomains are saved in `resolved-example.com.txt`.
+* Runs `dnsx` on collected subdomains
+* Saves `resolved-example.com.txt`
 
----
-
-### 7. Run Tools in Parallel (Faster)
+### 7. Parallel execution
 
 ```bash
 ./sinaSub.sh -d example.com -p
 ```
 
-* Uses GNU `parallel` to run every tool simultaneously.
-* **Cannot** be combined with `-u/--use` or `-e/--exclude`.
+* Requires GNU parallel
+* **Cannot** combine with `-u` or `-e`
 
----
-
-### 8. Custom Output Filename
+### 8. Custom output file
 
 ```bash
 ./sinaSub.sh -d example.com -o mysubs.txt
 ```
 
-* Overrides the default filename (`sinsub-example.com-YYYY-MM-DD.txt`) and saves final results as `mysubs.txt`.
-
----
-
-### 9. Adjust Number of Threads for DNS Probing
+### 9. Adjust DNS-probe threads
 
 ```bash
 ./sinaSub.sh -d example.com -r -t 100
 ```
 
-* Uses 100 threads when running `dnsx` (or future HTTP/HTTPS probes).
-
----
-
-### 10. Show Help or Version
+### 10. Help & version
 
 ```bash
-./sinaSub.sh -h    # Display detailed usage  
-./sinaSub.sh -v    # Show version (e.g., “sinsub v1.0.0”)
+./sinaSub.sh -h    # detailed usage
+./sinaSub.sh -v    # prints “sinsub v1.5.0”
 ```
 
 ---
 
-## 🔧 Troubleshooting & Tips
+## 🔧 Troubleshooting
 
-1. **Command Not Found Errors**
-   If you see “command not found” for tools like `findomain`, `subfinder`, or `sublist3r`, make sure that:
+1. **Missing commands**
+   Ensure these directories are in your `PATH`:
 
-   * `$HOME/go/bin` and `~/.local/bin` (where `pipx` installs binaries) are in your `PATH`:
+   ```bash
+   echo $PATH
+   # should include:
+   $HOME/go/bin
+   $HOME/.local/bin
+   ```
 
-     ```bash
-     echo $PATH
-     ```
+   Add and reload if needed:
 
-     If not, add them and reload your shell:
+   ```bash
+   echo 'export PATH=$PATH:$HOME/go/bin:$HOME/.local/bin' >> ~/.bashrc
+   source ~/.bashrc
+   ```
 
-     ```bash
-     echo 'export PATH=$PATH:$HOME/go/bin:$HOME/.local/bin' >> ~/.bashrc
-     source ~/.bashrc
-     ```
-
-2. **Manual Installation of a Missing Tool**
-   If `setup.sh` marked a tool as “Failed!”, install it manually:
+2. **Manual tool install**
 
    * **findomain**
 
      ```bash
      wget https://github.com/Findomain/Findomain/releases/download/8.2.1/findomain-linux.zip
-     unzip findomain-linux.zip
-     sudo mv findomain /usr/local/bin/
+     unzip findomain-linux.zip && sudo mv findomain /usr/local/bin/
      ```
    * **subfinder**
 
      ```bash
-     go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+     go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
      ```
    * **amass**
 
      ```bash
-     go install -v github.com/owasp-amass/amass/v4/...@master
+     go install github.com/owasp-amass/amass/v4/...@master
      ```
    * **assetfinder**
 
@@ -260,35 +191,29 @@ Then run:
    * **dnsx**
 
      ```bash
-     go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest
+     go install github.com/projectdiscovery/dnsx/cmd/dnsx@latest
      ```
    * **anew**
 
      ```bash
-     go install -v github.com/tomnomnom/anew@latest
+     go install github.com/tomnomnom/anew@latest
      ```
-   * **sublist3r** (Python)
+   * **Sublist3r** (Python)
 
      ```bash
      pipx install sublist3r
      ```
-   * **gobuster**
+   * **Gobuster**
 
      ```bash
      sudo apt-get update && sudo apt-get install -y gobuster
      ```
 
-3. **Using WSL (Windows Subsystem for Linux)**
-   If you’re on WSL, install prerequisites first:
+3. **WSL users**
 
    ```bash
    sudo apt-get update
-   sudo apt-get install -y wget unzip git pipx golang-go parallel
-   ```
-
-   Then add Go’s bin folder to your `PATH`:
-
-   ```bash
+   sudo apt-get install -y wget unzip git pipx golang-go parallel python3-pip dnsx anew gobuster
    echo 'export PATH=$PATH:$HOME/go/bin:$HOME/.local/bin' >> ~/.bashrc
    source ~/.bashrc
    ```
@@ -296,6 +221,6 @@ Then run:
 ---
 
 <p align="center">
-  ⭐️ You’re all set! Happy subdomain hunting with <strong>sinsub</strong>! ⭐️
+  ⭐️ Happy hunting with <strong>sinsub v1.5.0</strong>! ⭐️
 </p>
 ```
